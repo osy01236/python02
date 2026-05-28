@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenCV 학습 정리</title>
+  <link rel="stylesheet" href="study.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../study_home.html">Python02 Study Home</a>
+    <nav class="nav">
+      <a href="numpy.html">NumPy</a>
+      <a href="pandas.html">Pandas</a>
+      <a href="matplotlib.html">Matplotlib</a>
+      <a href="opencv.html">OpenCV</a>
+      <a href="fastapi_project.html">FastAPI</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <p class="eyebrow">opencv 폴더</p>
+      <h1>OpenCV 이미지·영상 처리 정리</h1>
+      <p class="lead">OpenCV는 이미지와 영상을 배열로 읽고, 색상 변환, 필터링, 경계 검출, contour, 움직임 감지 등을 처리하는 라이브러리입니다. AI가 찾은 결과를 화면에 표시할 때도 자주 사용합니다.</p>
+    </div>
+
+    <div class="wrap grid">
+      <div>
+        <section>
+          <h2>1. 이미지 읽기와 배열 감각</h2>
+          <p>OpenCV로 읽은 이미지는 NumPy 배열입니다. 컬러 이미지는 보통 <code>(높이, 너비, 3)</code> 모양이고, OpenCV는 색상 순서를 RGB가 아니라 BGR로 다룹니다.</p>
+          <pre><code class="language-python">import cv2
+
+img = cv2.imread("opencv/images/cat.png")
+
+print(type(img))    # numpy.ndarray
+print(img.shape)    # 높이, 너비, 채널
+
+cv2.imshow("image", img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()</code></pre>
+          <p class="note">OpenCV는 <code>imshow</code> 후에 <code>waitKey</code>를 호출해야 창이 유지됩니다.</p>
+        </section>
+
+        <section>
+          <h2>2. ROI와 이미지 자르기</h2>
+          <p>ROI는 Region Of Interest, 관심 영역입니다. 이미지에서 특정 부분만 잘라 분석할 때 사용합니다.</p>
+          <pre><code class="language-python">img = cv2.imread("opencv/images/cat.png")
+
+roi = img[20:120, 130:230]
+cv2.imshow("roi", roi)
+cv2.waitKey(0)</code></pre>
+          <p class="warn">배열 자르기는 <code>img[y1:y2, x1:x2]</code> 순서입니다. 좌표는 x, y로 말하지만 배열은 행, 열이라 y가 먼저 옵니다.</p>
+        </section>
+
+        <section>
+          <h2>3. 전처리: 크기, 흑백, blur, threshold</h2>
+          <p>이미지를 분석하기 전에 크기를 맞추고, 흑백으로 바꾸고, 노이즈를 줄이고, 흰색/검은색으로 분리합니다.</p>
+          <pre><code class="language-python">img = cv2.imread("opencv/images/dog.png")
+resize_img = cv2.resize(img, (320, 240))
+gray = cv2.cvtColor(resize_img, cv2.COLOR_BGR2GRAY)
+blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+_, thresh = cv2.threshold(
+    blur,
+    140,
+    255,
+    cv2.THRESH_BINARY
+)</code></pre>
+          <table class="mini-table">
+            <thead>
+              <tr><th>처리</th><th>목적</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>resize</td><td>속도와 크기 통일</td></tr>
+              <tr><td>grayscale</td><td>색상 정보를 줄이고 밝기만 사용</td></tr>
+              <tr><td>blur</td><td>노이즈 감소</td></tr>
+              <tr><td>threshold</td><td>객체와 배경 분리</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>4. Edge, contour, bounding box</h2>
+          <p>경계선을 찾고, 연결된 영역을 contour로 묶고, 그 영역을 감싸는 사각형을 그립니다.</p>
+          <pre><code class="language-python">gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+blur = cv2.GaussianBlur(gray, (5, 5), 0)
+edge = cv2.Canny(blur, 50, 150)
+
+contours, _ = cv2.findContours(
+    thresh,
+    cv2.RETR_EXTERNAL,
+    cv2.CHAIN_APPROX_SIMPLE
+)
+
+result = img.copy()
+for cnt in contours:
+    area = cv2.contourArea(cnt)
+    if area < 2500:
+        continue
+    x, y, w, h = cv2.boundingRect(cnt)
+    cv2.rectangle(result, (x, y), (x + w, y + h), (0, 0, 255), 2)</code></pre>
+          <p class="note">작은 노이즈까지 박스로 잡히면 <code>cv2.contourArea</code>로 작은 영역을 제외합니다.</p>
+        </section>
+
+        <section>
+          <h2>5. HSV 색상 마스크</h2>
+          <p>RGB/BGR보다 HSV는 특정 색을 찾기 편합니다. 빨간색 공, 빨간 문처럼 색 기준으로 객체를 찾을 때 사용합니다.</p>
+          <pre><code class="language-python">hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+lower_red1 = np.array([0, 100, 100])
+upper_red1 = np.array([10, 255, 255])
+lower_red2 = np.array([170, 100, 100])
+upper_red2 = np.array([179, 255, 255])
+
+mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+mask = cv2.bitwise_or(mask1, mask2)
+
+result = cv2.bitwise_and(img, img, mask=mask)</code></pre>
+          <p class="warn">빨간색은 HSV에서 0 근처와 179 근처로 나뉘기 때문에 범위를 두 개 잡는 경우가 많습니다.</p>
+        </section>
+
+        <section>
+          <h2>6. 영상 처리와 움직임 감지</h2>
+          <p>영상은 이미지 프레임이 빠르게 이어진 것입니다. <code>VideoCapture</code>로 프레임을 하나씩 읽고 처리합니다.</p>
+          <pre><code class="language-python">cap = cv2.VideoCapture("opencv/videos/video3.mp4")
+prev_frame = None
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    if prev_frame is None:
+        prev_frame = gray
+        continue
+
+    diff = cv2.absdiff(prev_frame, gray)
+    _, thresh = cv2.threshold(diff, 80, 255, cv2.THRESH_BINARY)
+    thresh = cv2.dilate(thresh, None, iterations=2)
+
+    prev_frame = gray
+
+cap.release()
+cv2.destroyAllWindows()</code></pre>
+          <p class="note">움직임 감지는 “이전 프레임과 현재 프레임의 차이”를 이용합니다.</p>
+        </section>
+
+        <section>
+          <h2>복습 미션</h2>
+          <ol>
+            <li>이미지 하나를 읽고 크기를 320px 너비로 줄이세요.</li>
+            <li>흑백 변환 후 threshold를 적용해보세요.</li>
+            <li>contour를 찾고 면적이 작은 객체는 제외하세요.</li>
+            <li>HSV로 특정 색상 영역만 남겨보세요.</li>
+            <li>영상에서 움직이는 영역을 빨간 박스로 표시해보세요.</li>
+          </ol>
+        </section>
+      </div>
+
+      <aside class="side">
+        <div class="side-card">
+          <strong>관련 파일</strong>
+          <ul>
+            <li><code>opencv/opencv_study1.py</code></li>
+            <li><code>opencv/opencv_study2.py</code></li>
+            <li><code>opencv/opencv_study3.py</code></li>
+            <li><code>opencv/opencv_hsv.py</code></li>
+            <li><code>opencv/opencv_hsv_ball.py</code></li>
+            <li><code>opencv/opencv_video_motion.py</code></li>
+          </ul>
+        </div>
+        <div class="side-card">
+          <strong>처리 흐름</strong>
+          <ol>
+            <li>이미지/영상 읽기</li>
+            <li>전처리</li>
+            <li>마스크 또는 엣지 생성</li>
+            <li>contour 찾기</li>
+            <li>박스와 텍스트 표시</li>
+          </ol>
+        </div>
+        <div class="side-card">
+          <a class="button primary" href="../study_home.html">메인으로</a>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer>OpenCV는 NumPy 배열 감각이 이미지와 영상으로 확장된 분야입니다.</footer>
+</body>
+</html>

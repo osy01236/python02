@@ -1,0 +1,17 @@
+.venv/
+.idea/
+
+__pycache__/
+*.pyc
+
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+*.pt
+
+.env
+
+cookies.txt
+**/cookies.txt

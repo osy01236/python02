@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FastAPI 미니프로젝트 학습 정리</title>
+  <link rel="stylesheet" href="study.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../study_home.html">Python02 Study Home</a>
+    <nav class="nav">
+      <a href="numpy.html">NumPy</a>
+      <a href="pandas.html">Pandas</a>
+      <a href="matplotlib.html">Matplotlib</a>
+      <a href="opencv.html">OpenCV</a>
+      <a href="fastapi_project.html">FastAPI</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <p class="eyebrow">miniproject1 폴더</p>
+      <h1>학생 성적·출석 분석 API 프로젝트</h1>
+      <p class="lead">이 프로젝트는 FastAPI로 API를 만들고, SQLAlchemy로 DB를 다루며, Pandas와 Matplotlib으로 학생 성적과 출석 데이터를 분석해 그래프와 PDF 보고서까지 만드는 흐름입니다.</p>
+    </div>
+
+    <div class="wrap grid">
+      <div>
+        <section>
+          <h2>1. 전체 구조</h2>
+          <p>프로젝트는 역할별로 폴더가 나뉩니다. 이 구조를 이해하면 코드가 어디에 들어가야 하는지 판단하기 쉬워집니다.</p>
+          <table class="mini-table">
+            <thead>
+              <tr><th>폴더/파일</th><th>역할</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>main.py</code></td><td>FastAPI 앱 생성, CORS 설정, 라우터 등록</td></tr>
+              <tr><td><code>database/db.py</code></td><td>DB 엔진, 세션, Base 설정</td></tr>
+              <tr><td><code>models</code></td><td>DB 테이블 구조 정의</td></tr>
+              <tr><td><code>schemas</code></td><td>요청/응답 데이터 형식 정의</td></tr>
+              <tr><td><code>routers</code></td><td>URL 주소와 HTTP 메서드 처리</td></tr>
+              <tr><td><code>service</code></td><td>실제 비즈니스 로직과 계산 처리</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>2. FastAPI 앱 시작점</h2>
+          <p><code>main.py</code>는 서버의 입구입니다. 앱을 만들고, DB 테이블을 생성하고, 라우터를 연결합니다.</p>
+          <pre><code class="language-python">from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+Base.metadata.create_all(bind=engine)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(student_router.router)
+app.include_router(score_router.router)
+app.include_router(attend_router.router)
+app.include_router(analysis_router.router)</code></pre>
+          <p class="note">라우터를 분리하면 기능이 많아져도 <code>main.py</code>가 복잡해지지 않습니다.</p>
+        </section>
+
+        <section>
+          <h2>3. 모델: DB 테이블 설계</h2>
+          <p>모델은 데이터베이스 테이블의 모양입니다. 학생, 성적, 출석 테이블이 있고 성적/출석은 학생 id를 참조합니다.</p>
+          <pre><code class="language-python">class Student(Base):
+    __tablename__ = "student"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), nullable=False)
+    class_n = Column(String(100), nullable=False)
+    team = Column(String(100), nullable=False)</code></pre>
+          <pre><code class="language-python">class Score(Base):
+    __tablename__ = "score"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("student.id"))
+    python_score = Column(Integer)
+    numpy_score = Column(Integer)
+    pandas_score = Column(Integer)
+    java_score = Column(Integer)
+    project_score = Column(Integer)</code></pre>
+          <p class="warn">성적과 출석은 반드시 어떤 학생의 데이터인지 알아야 하므로 <code>student_id</code>가 중요합니다.</p>
+        </section>
+
+        <section>
+          <h2>4. Router와 Service 분리</h2>
+          <p>Router는 요청을 받고, Service는 실제 작업을 합니다. 이렇게 나누면 URL 처리와 계산 로직이 섞이지 않습니다.</p>
+          <pre><code class="language-python">@router.post("/scores")
+def create_score(score: ScoreCreate, db: Session = Depends(get_db)):
+    return create_score_service(db, score)
+
+@router.get("/scores")
+def get_scores(db: Session = Depends(get_db)):
+    return get_score_list(db)</code></pre>
+          <pre><code class="language-python">def create_score_service(db, score):
+    score_data = [
+        score.python_score,
+        score.numpy_score,
+        score.pandas_score,
+        score.java_score,
+        score.project_score,
+    ]
+
+    for value in score_data:
+        if value < 0 or value > 100:
+            raise HTTPException(status_code=404, detail="점수 범위 오류")</code></pre>
+          <p class="note">검증, 계산, DB 저장 같은 실제 처리는 service 쪽에 두면 유지보수가 쉽습니다.</p>
+        </section>
+
+        <section>
+          <h2>5. API 기능 목록</h2>
+          <table class="mini-table">
+            <thead>
+              <tr><th>주소</th><th>기능</th><th>핵심 데이터</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>GET /students</code></td><td>학생 목록 조회</td><td>이름, 반, 팀</td></tr>
+              <tr><td><code>POST /students</code></td><td>학생 등록</td><td>학생 기본 정보</td></tr>
+              <tr><td><code>GET /scores</code></td><td>성적 목록 조회</td><td>과목별 점수, 총점, 평균</td></tr>
+              <tr><td><code>POST /scores</code></td><td>성적 등록</td><td>python, numpy, pandas, java, project</td></tr>
+              <tr><td><code>GET /attend</code></td><td>출석 목록 조회</td><td>출석, 지각, 결석, 조퇴, 출석률</td></tr>
+              <tr><td><code>POST /attend</code></td><td>출석 등록</td><td>출석 관련 숫자</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>6. 분석 기능</h2>
+          <p>분석 서비스는 DB에서 성적과 출석 데이터를 가져와 평균, 최댓값, 최솟값, 표준편차, 관리 대상 학생, 우수 학생을 계산합니다.</p>
+          <pre><code class="language-python">avg = (
+    score.python_score
+    + score.numpy_score
+    + score.pandas_score
+    + score.java_score
+    + score.project_score
+) / 5
+
+total_count = (
+    attend.attend
+    + attend.late
+    + attend.absent
+    + attend.early_leave
+)
+
+rate = (attend.attend / total_count) * 100</code></pre>
+          <ul>
+            <li>평균 점수가 낮거나 출석률이 낮으면 관리 대상 학생으로 분류합니다.</li>
+            <li>평균 점수와 출석률이 모두 높으면 우수 학생으로 분류합니다.</li>
+            <li>Matplotlib으로 성적 분포 그래프와 출석률 그래프를 생성합니다.</li>
+            <li>ReportLab으로 PDF 보고서를 생성합니다.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>7. 프로젝트를 더 발전시키는 방향</h2>
+          <ol>
+            <li>학생 수정/삭제 API를 추가해 CRUD를 완성합니다.</li>
+            <li>성적과 출석 등록 시 음수 입력을 막는 검증을 강화합니다.</li>
+            <li>학생별 최신 성적만 볼지, 전체 성적 이력을 볼지 정책을 정합니다.</li>
+            <li>프론트엔드 페이지에서 그래프 API 이미지를 바로 표시합니다.</li>
+            <li>PDF 보고서의 한글 깨짐을 정리하고 제목/문구를 다듬습니다.</li>
+          </ol>
+        </section>
+
+        <section>
+          <h2>복습 미션</h2>
+          <ol>
+            <li><code>/students</code> 등록 요청이 들어오면 어떤 파일들을 거치는지 설명해보세요.</li>
+            <li>성적 평균 계산 로직을 함수로 분리해보세요.</li>
+            <li>출석률이 70% 미만인 학생만 찾는 코드를 작성해보세요.</li>
+            <li><code>/analysis/class-summary</code> 응답에 과목별 평균도 추가해보세요.</li>
+            <li>PDF 보고서에 오늘 날짜를 넣어보세요.</li>
+          </ol>
+        </section>
+      </div>
+
+      <aside class="side">
+        <div class="side-card">
+          <strong>관련 파일</strong>
+          <ul>
+            <li><code>miniproject1/main.py</code></li>
+            <li><code>miniproject1/models</code></li>
+            <li><code>miniproject1/schemas</code></li>
+            <li><code>miniproject1/routers</code></li>
+            <li><code>miniproject1/service</code></li>
+            <li><code>miniproject1/database</code></li>
+          </ul>
+        </div>
+        <div class="side-card">
+          <strong>핵심 키워드</strong>
+          <ul class="pill-list">
+            <li>FastAPI</li>
+            <li>Router</li>
+            <li>Service</li>
+            <li>Schema</li>
+            <li>Model</li>
+            <li>SQLAlchemy</li>
+            <li>ReportLab</li>
+          </ul>
+        </div>
+        <div class="side-card">
+          <a class="button primary" href="../study_home.html">메인으로</a>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer>미니프로젝트는 지금까지 배운 분석과 시각화를 API 서비스로 연결한 결과물입니다.</footer>
+</body>
+</html>

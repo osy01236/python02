@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Matplotlib 학습 정리</title>
+  <link rel="stylesheet" href="study.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../study_home.html">Python02 Study Home</a>
+    <nav class="nav">
+      <a href="numpy.html">NumPy</a>
+      <a href="pandas.html">Pandas</a>
+      <a href="matplotlib.html">Matplotlib</a>
+      <a href="opencv.html">OpenCV</a>
+      <a href="fastapi_project.html">FastAPI</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <p class="eyebrow">matplotlib 폴더</p>
+      <h1>Matplotlib 시각화 정리</h1>
+      <p class="lead">Matplotlib은 숫자와 표 분석 결과를 사람이 보기 쉬운 그래프로 바꿔줍니다. 이 폴더에서는 선 그래프, 막대 그래프, 이미지 표시, bounding box, 그래프 저장을 연습했습니다.</p>
+    </div>
+
+    <div class="wrap grid">
+      <div>
+        <section>
+          <h2>1. 기본 그래프 구조</h2>
+          <p>그래프는 보통 x값, y값, 제목, 축 이름, 눈금, 출력 순서로 작성합니다.</p>
+          <pre><code class="language-python">import matplotlib.pyplot as plt
+
+x = ["python", "numpy", "pandas", "opencv"]
+y = [80, 75, 90, 70]
+
+plt.plot(x, y)
+plt.title("Study Score")
+plt.xlabel("subject")
+plt.ylabel("score")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()</code></pre>
+          <p class="note">한글 제목을 쓰려면 폰트 설정이 필요합니다. Windows에서는 보통 <code>Malgun Gothic</code>을 사용합니다.</p>
+          <pre><code class="language-python">plt.rcParams["font.family"] = "Malgun Gothic"
+plt.rcParams["axes.unicode_minus"] = False</code></pre>
+        </section>
+
+        <section>
+          <h2>2. figure, subplot, 저장</h2>
+          <p><code>figure</code>는 그림판 크기를 정하고, <code>subplot</code>은 한 화면에 여러 그래프를 배치합니다.</p>
+          <pre><code class="language-python">plt.figure(figsize=(8, 4))
+
+plt.subplot(1, 2, 1)
+plt.imshow(copy_img, cmap="gray")
+plt.title("copy")
+plt.axis("off")
+
+plt.subplot(1, 2, 2)
+plt.imshow(img, cmap="gray")
+plt.title("original")
+plt.axis("off")
+
+plt.savefig("test.png", dpi=300, transparent=True)
+plt.show()</code></pre>
+          <table class="mini-table">
+            <thead>
+              <tr><th>옵션</th><th>의미</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>figsize</code></td><td>그래프 크기</td></tr>
+              <tr><td><code>dpi</code></td><td>저장 해상도</td></tr>
+              <tr><td><code>transparent</code></td><td>배경 투명 여부</td></tr>
+              <tr><td><code>tight_layout</code></td><td>겹치는 여백 자동 정리</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section>
+          <h2>3. 이미지 표시와 흑백 처리</h2>
+          <p>이미지도 배열입니다. NumPy로 만든 배열이나 이미지 파일을 <code>imshow</code>로 표시할 수 있습니다.</p>
+          <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+img = np.random.randint(0, 256, (100, 100))
+
+copy_img = img.copy()
+copy_img[copy_img >= 128] = 255
+copy_img[copy_img < 128] = 0
+
+plt.imshow(copy_img, cmap="gray")
+plt.axis("off")
+plt.show()</code></pre>
+          <p class="note">흑백 이미지는 <code>cmap="gray"</code>를 지정해야 사람이 기대하는 색으로 보입니다.</p>
+        </section>
+
+        <section>
+          <h2>4. JSON 좌표로 bounding box 그리기</h2>
+          <p>AI 데이터셋의 annotation에는 물체 위치가 좌표로 들어 있습니다. 이 좌표를 읽어 이미지 위에 사각형으로 표시했습니다.</p>
+          <pre><code class="language-python">import json
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
+with open("18396603_frame_20.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+img = plt.imread("18396603_frame_20.png")
+plt.imshow(img)
+ax = plt.gca()
+
+box = patches.Rectangle(
+    (x, y),
+    width,
+    height,
+    fill=False,
+    edgecolor="red",
+    linewidth=2
+)
+
+ax.add_patch(box)
+plt.show()</code></pre>
+          <p class="warn">이미지 좌표는 왼쪽 위가 시작점입니다. x는 오른쪽으로, y는 아래쪽으로 증가합니다.</p>
+        </section>
+
+        <section>
+          <h2>5. 객체 개수 그래프</h2>
+          <p>JSON에서 car, truck, person 개수를 세고 막대 그래프로 표현하는 흐름입니다.</p>
+          <pre><code class="language-python">counts = {"car": 0, "truck": 0, "person": 0}
+
+for ann in data["frames"]["annotations"]:
+    code = ann["category"]["code"]
+    if code == "vehicle":
+        value = ann["category"]["attributes"][0]["value"]
+        counts[value] += 1
+    elif code == "person":
+        counts["person"] += 1
+
+labels = list(counts.keys())
+values = list(counts.values())
+
+plt.bar(labels, values, color=["blue", "red", "green"])
+plt.ylim(0, max(values) + 1)
+plt.show()</code></pre>
+        </section>
+
+        <section>
+          <h2>복습 미션</h2>
+          <ol>
+            <li>과목별 점수를 선 그래프와 막대 그래프로 각각 그려보세요.</li>
+            <li>그래프 제목, x축 이름, y축 이름을 추가하세요.</li>
+            <li>이미지를 읽고 하나 이상의 bounding box를 그려보세요.</li>
+            <li>객체 종류별 개수를 세어 막대 그래프로 표현하세요.</li>
+            <li>완성한 그래프를 <code>png</code>와 <code>pdf</code>로 저장해보세요.</li>
+          </ol>
+        </section>
+      </div>
+
+      <aside class="side">
+        <div class="side-card">
+          <strong>관련 파일</strong>
+          <ul>
+            <li><code>matplotlib/matplotlib_study1.py</code></li>
+            <li><code>matplotlib/matplotlib_study2.py</code></li>
+            <li><code>matplotlib/matplotlib_study3.py</code></li>
+            <li><code>matplotlib/matplotlib_study3-2.py</code></li>
+            <li><code>matplotlib/matplotlib_study4.py</code></li>
+          </ul>
+        </div>
+        <div class="side-card">
+          <strong>자주 쓰는 함수</strong>
+          <ul class="pill-list">
+            <li>plot</li>
+            <li>bar</li>
+            <li>hist</li>
+            <li>imshow</li>
+            <li>subplot</li>
+            <li>savefig</li>
+          </ul>
+        </div>
+        <div class="side-card">
+          <a class="button primary" href="../study_home.html">메인으로</a>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer>Matplotlib은 분석 결과를 설명 가능한 그림으로 바꾸는 단계입니다.</footer>
+</body>
+</html>
